@@ -2,9 +2,7 @@
 import requests
 import logging
 from lxml import html
-from lxml import etree
 import textwrap
-import json
 
 try:
     import httplib
@@ -89,6 +87,7 @@ class InShortNews(object):
         for news_item in list_of_news:
             # InShortNews.formatted_news(news_item['headline'], True)
             print "["+str(self.print_count)+"] "+news_item['headline']
+            print
             self.print_count += 1
 
     def print_all_news(self, list_of_news):
