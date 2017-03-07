@@ -64,7 +64,8 @@ class InShortNews(object):
         list_of_homepage_news = [
             {
                 'headline'              : news.xpath('.//span[@itemprop="headline"]')[0].xpath('.//text()')[0],
-                'headline_description'  : news.xpath('.//div[@itemprop="articleBody"]')[0].xpath('.//text()')[0]
+                'headline_description'  : news.xpath('.//div[@itemprop="articleBody"]')[0].xpath('.//text()')[0],
+                'headline_link'         : news.xpath('.//a[@class="source"]')[0].get('href').strip()
             }
                 for news in news_articles
             ]
@@ -74,4 +75,5 @@ class InShortNews(object):
             print "--------------------------------------------------------------------------------"
             if not self.headlines_only:
                 InShortNews.formatted_news(news_item['headline_description'], False)
+                InShortNews.formatted_news(news_item['headline_link'], True)
                 print
