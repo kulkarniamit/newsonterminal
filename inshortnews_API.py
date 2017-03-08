@@ -9,13 +9,25 @@ try:
 except ImportError:
     import http.client as httplib
 
+NEWS_HEADLINE_LENGTH = 80
+NEWS_DETAILS_LENGTH = 80
+
 class InShortNews(object):
-    """Base class for constructing an In short news query
+    """Base class for constructing an inshort news query
+        Attributes:
+            isn_home_URL (str): URL of isn home page.
+            isn_more_URL (str): URL of isn more news queries
+            host (str): Host name of inshortnews.
+            user_agent (str): User agent to be used for requests calls
+            home_page_request_headers (dict): Headers to be used for sending home page request
+            more_news_request_headers (dict): Headers to be sent for requesting more news
+            headlines_only (bool): Boolean that indicates if only headlines should be shown
+            min_news_id (str): Offset of news loaded so far
+            print_count (int): Count of headlines displayed
     """
     isn_more_URL = "https://www.inshorts.com/en/ajax/more_news"
     isn_home_URL = "https://www.inshorts.com/en/read"
     host = "www.inshorts.com"
-    # user_agent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_8_2) AppleWebKit/536.26.14 (KHTML, like Gecko) (Coda, like Safari)"
     user_agent = "Mozilla/5.0 (Linux; Android 4.0.4; Galaxy Nexus Build/IMM76B) AppleWebKit/535.19 (KHTML, like Gecko) Chrome/18.0.1025.133 Mobile Safari/535.19"
     home_page_request_headers = {
         "Host": host,
@@ -41,13 +53,15 @@ class InShortNews(object):
         "Accept-Language": "en-US,en;q=0.8"
     }
     headlines_only = False
-    NEWS_HEADLINE_LENGTH = 80
-    NEWS_DETAILS_LENGTH = 80
     min_news_id = ""
     print_count = 1
 
     def __init__(self, debug=False, headlines_only=False):
-        '''Initialize variables required for all instances'''
+        """Fetch the home page news contents
+        Args:
+        :param debug: bool that indicates if debug mode is on
+        :param headlines_only: bool that indicates if the user wants to see the headlines only
+        """
         if debug:
             httplib.HTTPConnection.debuglevel = 1
             logging.basicConfig()
@@ -60,11 +74,22 @@ class InShortNews(object):
 
     @staticmethod
     def formatted_news(news, headline):
-        char_count_per_line = InShortNews.NEWS_HEADLINE_LENGTH if headline else InShortNews.NEWS_DETAILS_LENGTH
+        """Display the given news
+        Args:
+        :param news: A string of news
+        :param headline: A bool that indicates if we should display the headline or details of news
+        """
+        char_count_per_line = NEWS_HEADLINE_LENGTH if headline else NEWS_DETAILS_LENGTH
         for line in textwrap.wrap(news, char_count_per_line, break_long_words=False):
             print line
 
     def parse_news(self, news_articles):
+        """Parse the given news articles to extract the headline, details of news, link to source of news
+        and the id of the news item. Iterate over the news articles and generate a list of dictionaries.
+        Args:
+        :param news_articles: A tree of HTML for parsing
+        :return: A list of dictionaries with headline, news details, source of news and news ID
+        """
         list_of_homepage_news = [
             {
                 'headline': news.xpath('.//span[@itemprop="headline"]')[0].xpath('.//text()')[0],
@@ -78,19 +103,30 @@ class InShortNews(object):
         return list_of_homepage_news
 
     def print_news(self, home_page_news_items):
+        """Print either the headlines or headlines with details in the given list of news items
+        Args:
+        :param home_page_news_items: List of dictionaries with news items
+        """
         if(self.headlines_only):
             self.print_headlines_only(home_page_news_items)
         else:
             self.print_all_news(home_page_news_items)
 
     def print_headlines_only(self,list_of_news):
+        """Print the headlines only in the given list of news items
+        Args:
+        :param list_of_news: List of news
+        """
         for news_item in list_of_news:
-            # InShortNews.formatted_news(news_item['headline'], True)
             print "["+str(self.print_count)+"] "+news_item['headline']
             print
             self.print_count += 1
 
     def print_all_news(self, list_of_news):
+        """ Print the news headlines along with details of the news and the source of news
+        Args:
+        :param list_of_news: List of news items
+        """
         print "--------------------------------------------------------------------------------"
         for news_item in list_of_news:
             InShortNews.formatted_news(news_item['headline'], True)
@@ -101,6 +137,8 @@ class InShortNews(object):
                 print
 
     def initialize_session(self):
+        """ Perform a GET request to fetch the news from the home page and print them
+        """
         # Now, isn_request has cookies with it and we need not attach it every time henceforth
         self.isn_request = requests.Session()
         home_page_response = self.isn_request.get(self.isn_home_URL, headers=self.home_page_request_headers)
@@ -111,14 +149,12 @@ class InShortNews(object):
         tree = html.fromstring(home_page_response.content)
         news_articles = tree.xpath('.//div[@itemtype="http://schema.org/NewsArticle"]');
         home_page_news_items = self.parse_news(news_articles)
-        # Finding this looks really manual but we are not left with any other option
-        # Using the news_id of the last article for the new loads isn't helping
-        # So, let's just work with the way their HTML works
-        # CAUTION: Required debugging (Information isn't available)
         self.min_news_id = tree.xpath('.//script[contains(text(),"min_news_id")]')[0].xpath('.//text()')[0].strip().split(';',1)[0].split("\"")[1]
         self.print_news(home_page_news_items)
 
     def get_more_news(self):
+        """Request for more news using a POST request using an offset of news loaded so far
+        """
         form_data = {
             "category":"",
             "news_offset": self.min_news_id
